@@ -28,23 +28,16 @@ pub struct InitializeExtraAccountMetaList<'info> {
 
 impl<'info> InitializeExtraAccountMetaList<'info> {
     pub fn extra_account_metas() -> Result<Vec<ExtraAccountMeta>> {
-        // Derive the whitelist PDA using our program ID
-        let (whitelist_pda, _bump) = Pubkey::find_program_address(&[b"whitelist"], &ID);
-
-        Ok(vec![
-            ExtraAccountMeta::new_with_seeds(
-                &[
-                    Seed::Literal {
-                        bytes: b"whitelist".to_vec(),
-                    },
-                    Seed::AccountKey { index: 3 }, // 0 is source token, 1 is mint account, 2 is destination token, 3 is owner of source token
-                ],
-                false, // is_signer
-                false, // is_writable
-            )
-            .unwrap(),
-            ExtraAccountMeta::new_with_pubkey(&whitelist_pda.to_bytes().into(), false, false)
-                .unwrap(),
-        ])
+        Ok(vec![ExtraAccountMeta::new_with_seeds(
+            &[
+                Seed::Literal {
+                    bytes: b"whitelist".to_vec(),
+                },
+                Seed::AccountKey { index: 3 }, // 0 is source token, 1 is mint account, 2 is destination token, 3 is owner of source token
+            ],
+            false, // is_signer
+            false, // is_writable
+        )
+        .unwrap()])
     }
 }

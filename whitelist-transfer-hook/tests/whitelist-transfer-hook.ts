@@ -94,23 +94,6 @@ describe("whitelist-transfer-hook", () => {
     console.log("Transaction signature:", tx);
   });
 
-  it("Remove user to whitelist", async () => {
-    const tx = await program.methods
-      .removeFromWhitelist(provider.publicKey)
-      .accountsPartial({
-        admin: provider.publicKey,
-        userWallet: provider.publicKey,
-        whitelist,
-      })
-      .rpc();
-
-    console.log(
-      "\nUser removed from whitelist:",
-      provider.publicKey.toBase58(),
-    );
-    console.log("Transaction signature:", tx);
-  });
-
   it("Create Mint Account with Transfer Hook Extension", async () => {
     const extensions = [ExtensionType.TransferHook];
     const mintLen = getMintLen(extensions);
@@ -266,13 +249,45 @@ describe("whitelist-transfer-hook", () => {
       );
       console.log("\nTransfer Signature:", txSig);
     } catch (error) {
+      console.error("\nTransaction failed:", error);
       if (error instanceof SendTransactionError) {
         console.error("\nTransaction failed:", error.logs[6]);
         // console.error("\nTransaction failed. Full logs:");
-        // error.logs?.forEach((log, i) => console.error(`  ${i}: ${log}`));
+        error.logs?.forEach((log, i) => console.error(`  ${i}: ${log}`));
       } else {
         console.error("\nUnexpected error:", error);
       }
     }
+  });
+
+  it("Remove user to whitelist", async () => {
+    const tx = await program.methods
+      .removeFromWhitelist(provider.publicKey)
+      .accountsPartial({
+        admin: provider.publicKey,
+        userWallet: provider.publicKey,
+        whitelist,
+      })
+      .rpc();
+
+    console.log(
+      "\nUser removed from whitelist:",
+      provider.publicKey.toBase58(),
+    );
+    console.log("Transaction signature:", tx);
+  });
+
+  it("Close user whitelist", async () => {
+    const tx = await program.methods
+      .closeWhitelist(provider.publicKey)
+      .accountsPartial({
+        admin: provider.publicKey,
+        userWallet: provider.publicKey,
+        whitelist,
+      })
+      .rpc();
+
+    console.log("\nUser state account closed:", provider.publicKey.toBase58());
+    console.log("Transaction signature:", tx);
   });
 });

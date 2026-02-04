@@ -33,6 +33,10 @@ pub mod whitelist_transfer_hook {
         ctx.accounts.add_to_whitelist(user)
     }
 
+    pub fn close_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
+        ctx.accounts.close_whitelist()
+    }
+
     pub fn remove_from_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
         ctx.accounts.remove_from_whitelist(user)
     }
