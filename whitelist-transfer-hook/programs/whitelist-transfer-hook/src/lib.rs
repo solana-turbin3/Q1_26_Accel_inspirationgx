@@ -16,12 +16,17 @@ use spl_transfer_hook_interface::instruction::{
 
 declare_id!("H9VFAbfTt4f3hjyz1hYnKK3nYhaFko82zPUMcSvMSr6");
 
+pub mod errors;
+
 #[program]
 pub mod whitelist_transfer_hook {
     use super::*;
 
-    pub fn initialize_whitelist(ctx: Context<InitializeWhitelist>) -> Result<()> {
-        ctx.accounts.initialize_whitelist(ctx.bumps)
+    pub fn initialize_whitelist(
+        ctx: Context<InitializeWhitelist>,
+        user_wallet: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts.initialize_whitelist(ctx.bumps, user_wallet)
     }
 
     pub fn add_to_whitelist(ctx: Context<WhitelistOperations>, user: Pubkey) -> Result<()> {
