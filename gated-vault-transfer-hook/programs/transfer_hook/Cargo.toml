@@ -1,0 +1,31 @@
+[package]
+name = "transfer_hook"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "transfer_hook"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+gated-vault-transfer-hook = { path = "../gated-vault-transfer-hook", features = [
+    "cpi",
+] }
+# Library for easy management of 8-byte discriminators
+spl-discriminator = "0.4"
+# Library defining a generic state interface to encode additional required accounts for an instruction, using Type-Length-Value structures
+spl-tlv-account-resolution = "0.10.0"
+# Library with helper to resolve additional accounts
+spl-transfer-hook-interface = "0.10.0"

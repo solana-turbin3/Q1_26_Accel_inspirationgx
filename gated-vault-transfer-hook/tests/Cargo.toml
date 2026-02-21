@@ -1,0 +1,22 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+gated-vault-transfer-hook = { path = "../programs/gated-vault-transfer-hook", features = [
+    "cpi",
+] }
+transfer_hook = { path = "../programs/transfer_hook", features = ["cpi"] }
+litesvm = "0.7.1"
+solana-address = "1.0.0"
+solana-hash = "2.2.1"
+solana-instruction = "2.2.1"
+solana-pubkey = "2.2.1"
+# solana-sdk = "2.1"
+solana-keypair = "2.2.1"
+solana-transaction = "2.2.1"
+solana-signer = "2.2.1"
+spl-token-2022 = { version = "9.0.0", features = ["no-entrypoint"] }
