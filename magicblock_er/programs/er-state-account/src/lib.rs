@@ -35,6 +35,14 @@ pub mod er_state_account {
         Ok(())
     }
 
+    pub fn request_randomness(ctx: Context<VrfUpdateCommit>, seed: u64) -> Result<()> {
+        ctx.accounts.request_randomness(seed)
+    }
+
+    pub fn request_randomness_undelegated(ctx: Context<VrfUpdate>, seed: u64) -> Result<()> {
+        ctx.accounts.request_randomness_undelegated(seed)
+    }
+
     pub fn delegate(ctx: Context<Delegate>) -> Result<()> {
         ctx.accounts.delegate()?;
 
@@ -51,5 +59,19 @@ pub mod er_state_account {
         ctx.accounts.close()?;
 
         Ok(())
+    }
+
+    pub fn delegated_update_commit(
+        ctx: Context<CallBackDelegated>,
+        randomness: [u8; 32],
+    ) -> Result<()> {
+        ctx.accounts.delegated_update_commit(randomness)
+    }
+
+    pub fn undelegated_update(
+        ctx: Context<CallBackUnDelegated>,
+        randomness: [u8; 32],
+    ) -> Result<()> {
+        ctx.accounts.undelegated_update(randomness)
     }
 }
