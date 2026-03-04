@@ -14,7 +14,7 @@ use crate::errors::StakingError;
 const SECONDS_PER_DAY: i64 = 86400;
 
 #[derive(Accounts)]
-pub struct Unstake<'info> {
+pub struct ClaimRewards<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     /// CHECK: PDA Update authority
@@ -54,17 +54,18 @@ pub struct Unstake<'info> {
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
-impl<'info> Unstake<'info> {
-    pub fn unstake(&mut self, bumps: &UnstakeBumps) -> Result<()> {
-        
-        // Verify NFT owner and update authority
+
+impl<'info> ClaimRewards<'info> {
+    pub fn claim_rewards(&mut self, bumps: &ClaimRewardsBumps) -> Result<()>{
+
+         // Verify NFT owner and update authority
         let base_asset = BaseAssetV1::try_from(&self.nft.to_account_info())?;
         require!(base_asset.owner == self.user.key(), StakingError::InvalidOwner);
         require!(base_asset.update_authority == UpdateAuthority::Collection(self.collection.key()), StakingError::InvalidAuthority);
         let base_collection = BaseCollectionV1::try_from(&self.collection.to_account_info())?;
         require!(base_collection.update_authority == self.update_authority.key(), StakingError::InvalidAuthority);
 
-        // Signer seeds for the update authority
+         // Signer seeds for the update authority
         let collection_key = self.collection.key();
         let signer_seeds = &[
             b"update_authority",
@@ -87,22 +88,16 @@ impl<'info> Unstake<'info> {
         let mut attribute_list: Vec<Attribute> = Vec::with_capacity(fetched_attribute_list.attribute_list.len());
         let mut staked_value: Option<&str> = None;
         let mut staked_at_value: Option<&str> = None;
-        
-        for attribute in &fetched_attribute_list.attribute_list {
+
+         for attribute in &fetched_attribute_list.attribute_list {
             match attribute.key.as_str() {
                 "staked" => {
                     staked_value = Some(&attribute.value);
-                    attribute_list.push(Attribute { 
-                        key: "staked".to_string(), 
-                        value: "false".to_string() 
-                    });
+                    
                 }
                 "staked_at" => {
                     staked_at_value = Some(&attribute.value);
-                    attribute_list.push(Attribute { 
-                        key: "staked_at".to_string(), 
-                        value: "0".to_string() 
-                    });
+                   
                 }
                 _ => {
                     attribute_list.push(attribute.clone());
@@ -110,32 +105,13 @@ impl<'info> Unstake<'info> {
             }
         }
 
-        require!(staked_value == Some("true"), StakingError::NotStaked);
+         // check that user staked
+         require!(staked_value == Some("true"), StakingError::NotStaked);
 
-        // 1. Get the raw string reference
-        let raw_staked_value = staked_at_value.ok_or(StakingError::InvalidTimestamp)?;
-        
-        // 2. Clean it: Remove null bytes, whitespace, and trim it
-        let clean_staked_value = raw_staked_value
-            .trim_matches(char::from(0)) // Remove null bytes common in Borsh strings
-            .trim(); // Remove spaces
-
-        // 3. Log it to prove what we are seeing
-        msg!("Raw Attribute String: '{}'", raw_staked_value);
-        msg!("Clean Attribute String: '{}'", clean_staked_value);
-
-        // 4. Parse the clean string
-        let staked_at_timestamp = clean_staked_value
+         let staked_at_timestamp = staked_at_value
+            .ok_or(StakingError::InvalidTimestamp)?
             .parse::<i64>()
-            .map_err(|_| {
-                msg!("Failed to parse: {}", clean_staked_value);
-                StakingError::InvalidTimestamp
-            })?;
-        
-        // let staked_at_timestamp = staked_at_value
-        //     .ok_or(StakingError::InvalidTimestamp)?
-        //     .parse::<i64>()
-        //     .map_err(|_| StakingError::InvalidTimestamp)?;
+            .map_err(|_| StakingError::InvalidTimestamp)?;
 
         // Calculate staked time in days
         let elapsed_seconds = current_timestamp
@@ -146,36 +122,13 @@ impl<'info> Unstake<'info> {
             .checked_div(SECONDS_PER_DAY)
             .ok_or(StakingError::InvalidTimestamp)?;
 
-        // require!(staked_time_days > 0, StakingError::FreezePeriodNotElapsed);
-        // require!(staked_time_days >= self.config.freeze_period as i64, StakingError::FreezePeriodNotElapsed);
+        // check that user has staked for at least a day
+        require!(staked_time_days > 0, StakingError::FreezePeriodNotElapsed);
 
-        // Update the NFT attributes with reset values
-        UpdatePluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
-            .asset(&self.nft.to_account_info())
-            .collection(Some(&self.collection.to_account_info()))
-            .payer(&self.user.to_account_info())
-            .authority(Some(&self.update_authority.to_account_info()))
-            .system_program(&self.system_program.to_account_info())
-            .plugin(Plugin::Attributes( Attributes { attribute_list }))
-            .invoke_signed(&[signer_seeds])?;
-        
-        // Unfreeze the NFT (Thaw the asset)
-        UpdatePluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
-            .asset(&self.nft.to_account_info())
-            .collection(Some(&self.collection.to_account_info()))
-            .payer(&self.user.to_account_info())
-            .authority(Some(&self.update_authority.to_account_info()))
-            .system_program(&self.system_program.to_account_info())
-            .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: false }))
-            .invoke_signed(&[signer_seeds])?;
+       
+       let total_points_over_days = (self.config.points_per_stake as u64).checked_mul(staked_time_days as u64).ok_or(  StakingError::Overflow)?;
 
-        // Calculate rewards to the user
-        let amount = (staked_time_days as u64)
-            .checked_mul(self.config.points_per_stake as u64)
-            .ok_or(StakingError::Overflow)?;
-
-        // Prepare signer seeds for config PDA
-        let config_seeds = &[
+         let config_seeds = &[
             b"config",
             collection_key.as_ref(),
             &[self.config.config_bump],
@@ -189,8 +142,9 @@ impl<'info> Unstake<'info> {
             to: self.user_rewards_ata.to_account_info(),
             authority: self.config.to_account_info(),
         };
+        // do transfer
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, config_signer_seeds);
-        mint_to_checked(cpi_ctx, amount, self.rewards_mint.decimals)?;
+        mint_to_checked(cpi_ctx, total_points_over_days, self.rewards_mint.decimals)?;
         
         Ok(())
     }

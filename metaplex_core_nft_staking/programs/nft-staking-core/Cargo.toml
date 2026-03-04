@@ -1,3 +1,5 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "nft-staking-core"
 version = "0.1.0"
@@ -27,4 +29,6 @@ mpl-core = { version = "0.11.1", features = ["anchor"] }
 
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(target_os, values("solana"))',
+] }
