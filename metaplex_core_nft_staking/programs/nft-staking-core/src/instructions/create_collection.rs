@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use mpl_core::{
-    ID as MPL_CORE_ID,
     instructions::CreateCollectionV2CpiBuilder,
+    types::{Attribute, Attributes, Plugin, PluginAuthorityPair},
+    ID as MPL_CORE_ID,
 };
 
 #[derive(Accounts)]
@@ -22,8 +23,12 @@ pub struct CreateCollection<'info> {
     pub mpl_core_program: UncheckedAccount<'info>,
 }
 impl<'info> CreateCollection<'info> {
-    pub fn create_collection(&mut self, name: String, uri: String, bumps: &CreateCollectionBumps) -> Result<()> {
-
+    pub fn create_collection(
+        &mut self,
+        name: String,
+        uri: String,
+        bumps: &CreateCollectionBumps,
+    ) -> Result<()> {
         // Signer seeds for the update authority
         let collection_key = self.collection.key();
         let signer_seeds = &[
@@ -37,6 +42,15 @@ impl<'info> CreateCollection<'info> {
             .collection(&self.collection.to_account_info())
             .payer(&self.payer.to_account_info())
             .update_authority(Some(&self.update_authority.to_account_info()))
+            .plugins(vec![PluginAuthorityPair {
+                plugin: Plugin::Attributes(Attributes {
+                    attribute_list: vec![Attribute {
+                        key: "total_staked".to_string(),
+                        value: "0".to_string(),
+                    }],
+                }),
+                authority: Some(mpl_core::types::PluginAuthority::UpdateAuthority),
+            }])
             .system_program(&self.system_program.to_account_info())
             .name(name)
             .uri(uri)

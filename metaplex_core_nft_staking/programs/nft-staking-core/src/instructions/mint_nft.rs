@@ -49,6 +49,7 @@ impl<'info> Mint<'info> {
             .uri(uri)
             .invoke_signed(&[signer_seeds])?;
 
+        // add a burn delegate
         match fetch_plugin::<BaseAssetV1, BurnDelegate>(
             &self.nft.to_account_info(),
             PluginType::BurnDelegate,

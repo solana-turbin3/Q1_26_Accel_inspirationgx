@@ -16,4 +16,6 @@ pub enum StakingError {
     FreezePeriodNotElapsed,
     #[msg("Overflow")]
     Overflow,
+    #[msg("total_staked attribute plugin not found on collection.")]
+    TotalStakedAttributeNotFound,
 }

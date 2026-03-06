@@ -4,7 +4,7 @@ use mpl_core::{
     ID as MPL_CORE_ID,
     accounts::{BaseAssetV1, BaseCollectionV1}, 
     fetch_plugin, 
-    instructions::UpdatePluginV1CpiBuilder,
+    instructions::{UpdateCollectionPluginV1CpiBuilder, UpdatePluginV1CpiBuilder},
     types::{Attribute, Attributes, FreezeDelegate, Plugin, PluginType, UpdateAuthority}
 };
 use crate::state::Config;
@@ -194,6 +194,50 @@ impl<'info> Unstake<'info> {
         };
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, config_signer_seeds);
         mint_to_checked(cpi_ctx, amount, self.rewards_mint.decimals)?;
+
+
+        // updating the collection total staked count
+
+match fetch_plugin::<BaseCollectionV1, Attributes>(
+    &self.collection.to_account_info(),
+    PluginType::Attributes,
+) {
+    Ok((_, fetched_plugin_attributes_list, _)) => {
+        let mut plugin_attribute_list: Vec<Attribute> = Vec::new();
+
+        for attribute in fetched_plugin_attributes_list.attribute_list {
+            if attribute.key == "total_staked" {
+                // Parse existing value
+                let current_val = attribute.value.parse::<u64>().unwrap_or(0);
+            
+                let new_val = current_val.saturating_sub(1);
+                
+                plugin_attribute_list.push(Attribute {
+                    key: "total_staked".to_string(),
+                    value: new_val.to_string(),
+                });
+            } else {
+                
+                plugin_attribute_list.push(attribute);
+            }
+        }
+
+        // Update the Collection Plugin with the new list
+        UpdateCollectionPluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
+            .collection(&self.collection.to_account_info())
+            .payer(&self.user.to_account_info())
+            .authority(Some(&self.update_authority.to_account_info()))
+            .system_program(&self.system_program.to_account_info())
+            .plugin(Plugin::Attributes(Attributes {
+                attribute_list: plugin_attribute_list,
+            }))
+            .invoke_signed(&[signer_seeds])?;
+    }
+    Err(_) => {
+        msg!("Warning: total_staked attribute plugin not found on collection.");
+       return Err(StakingError::TotalStakedAttributeNotFound.into());
+    }
+}
         
         Ok(())
     }
