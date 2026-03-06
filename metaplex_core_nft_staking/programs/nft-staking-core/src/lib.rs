@@ -43,4 +43,8 @@ pub mod nft_staking_core {
     pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
         ctx.accounts.unstake(&ctx.bumps)
     }
+
+    pub fn burn_staked_nft(ctx: Context<BurnStakedNFT>) -> Result<()> {
+        ctx.accounts.burn_staked_nft(&ctx.bumps)
+    }
 }

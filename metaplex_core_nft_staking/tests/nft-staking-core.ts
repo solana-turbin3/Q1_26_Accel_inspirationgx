@@ -12,7 +12,7 @@ import {
 const MILLISECONDS_PER_DAY = 86400000;
 const POINTS_PER_STAKED_NFT_PER_DAY = 10_000_000;
 const FREEZE_PERIOD_IN_DAYS = 7;
-const TIME_TRAVEL_IN_DAYS = 8;
+const TIME_TRAVEL_IN_DAYS = 9;
 
 describe("nft-staking-core", () => {
   // Configure the client to use the local cluster.
@@ -156,7 +156,7 @@ describe("nft-staking-core", () => {
     console.log("\nTime traveled in days", TIME_TRAVEL_IN_DAYS);
   });
 
-  xit("Claims Rewards for a staked NFT", async () => {
+  it("Claims Rewards for a staked NFT", async () => {
     // Get the user rewards ATA account
     const userRewardsAta = getAssociatedTokenAddressSync(
       rewardsMint,
@@ -183,6 +183,44 @@ describe("nft-staking-core", () => {
         })
         .rpc();
 
+      console.log("\nYour transaction signature", tx);
+    } catch (error) {
+      console.log(error.logs);
+      throw error;
+    }
+    console.log(
+      "User rewards balance",
+      (await provider.connection.getTokenAccountBalance(userRewardsAta)).value
+        .uiAmount,
+    );
+  });
+
+  it("Burns staked NFT for rewards", async () => {
+    // Get the user rewards ATA account
+    const userRewardsAta = getAssociatedTokenAddressSync(
+      rewardsMint,
+      provider.wallet.publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+    try {
+      const tx = await program.methods
+        .burnStakedNft()
+        .accountsPartial({
+          user: provider.wallet.publicKey,
+          updateAuthority,
+          config,
+          rewardsMint,
+          userRewardsAta,
+          nft: nftKeypair.publicKey,
+          collection: collectionKeypair.publicKey,
+          mplCoreProgram: MPL_CORE_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .rpc();
       console.log("\nYour transaction signature", tx);
     } catch (error) {
       console.log(error.logs);

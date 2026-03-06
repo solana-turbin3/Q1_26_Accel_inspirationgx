@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 use mpl_core::{
+    accounts::BaseAssetV1,
+    fetch_plugin,
+    instructions::{AddPluginV1CpiBuilder, CreateV2CpiBuilder},
+    types::{BurnDelegate, Plugin, PluginAuthority, PluginType},
     ID as MPL_CORE_ID,
-    instructions::CreateV2CpiBuilder,
 };
 
 #[derive(Accounts)]
@@ -26,7 +29,6 @@ pub struct Mint<'info> {
 }
 impl<'info> Mint<'info> {
     pub fn mint_nft(&mut self, name: String, uri: String, bumps: &MintBumps) -> Result<()> {
-
         // Signer seeds for the update authority
         let collection_key = self.collection.key();
         let signer_seeds = &[
@@ -46,6 +48,25 @@ impl<'info> Mint<'info> {
             .name(name)
             .uri(uri)
             .invoke_signed(&[signer_seeds])?;
+
+        match fetch_plugin::<BaseAssetV1, BurnDelegate>(
+            &self.nft.to_account_info(),
+            PluginType::BurnDelegate,
+        ) {
+            Err(_) => {
+                // First time staking — add FreezeDelegate plugin
+                AddPluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
+                    .asset(&self.nft.to_account_info())
+                    .collection(Some(&self.collection.to_account_info()))
+                    .payer(&self.user.to_account_info())
+                    .authority(Some(&self.user.to_account_info()))
+                    .system_program(&self.system_program.to_account_info())
+                    .plugin(Plugin::BurnDelegate(BurnDelegate {}))
+                    .init_authority(PluginAuthority::UpdateAuthority)
+                    .invoke()?;
+            }
+            Ok(_) => return Ok(()), // burn delegate already exists which should never be hit
+        }
 
         Ok(())
     }
