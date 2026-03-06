@@ -11,7 +11,7 @@ import {
 
 const MILLISECONDS_PER_DAY = 86400000;
 const POINTS_PER_STAKED_NFT_PER_DAY = 10_000_000;
-const FREEZE_PERIOD_IN_DAYS = 0;
+const FREEZE_PERIOD_IN_DAYS = 7;
 const TIME_TRAVEL_IN_DAYS = 8;
 
 describe("nft-staking-core", () => {
@@ -122,47 +122,11 @@ describe("nft-staking-core", () => {
    * Helper function to advance time with surfnet_timeTravel RPC method
    * @param params - Time travel params (absoluteEpoch, absoluteSlot, or absoluteTimestamp)
    */
-  // async function advanceTime(params: {
-  //   absoluteEpoch?: number;
-  //   absoluteSlot?: number;
-  //   absoluteTimestamp?: number;
-  // }): Promise<void> {
-  //   const rpcResponse = await fetch(provider.connection.rpcEndpoint, {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       jsonrpc: "2.0",
-  //       id: 1,
-  //       method: "surfnet_timeTravel",
-  //       params: [params],
-  //     }),
-  //   });
-
-  //   const result = (await rpcResponse.json()) as { error?: any; result?: any };
-  //   if (result.error) {
-  //     throw new Error(`Time travel failed: ${JSON.stringify(result.error)}`);
-  //   }
-
-  //   await new Promise((resolve) => setTimeout(resolve, 1000));
-  // }
-
-  // it("Time travel to the future", async () => {
-  //   // Advance time in milliseconds
-  //   const currentTimestamp = Date.now();
-  //   await advanceTime({
-  //     absoluteTimestamp:
-  //       currentTimestamp + TIME_TRAVEL_IN_DAYS * MILLISECONDS_PER_DAY,
-  //   });
-  //   console.log("\nTime traveled in days", TIME_TRAVEL_IN_DAYS);
-  // });
-
   async function advanceTime(params: {
     absoluteEpoch?: number;
     absoluteSlot?: number;
     absoluteTimestamp?: number;
   }): Promise<void> {
-    const target = params.absoluteTimestamp;
-
     const rpcResponse = await fetch(provider.connection.rpcEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,92 +134,65 @@ describe("nft-staking-core", () => {
         jsonrpc: "2.0",
         id: 1,
         method: "surfnet_timeTravel",
-        params: [{ absoluteTimestamp: target }],
+        params: [params],
       }),
     });
 
-    const result = await rpcResponse.json();
+    const result = (await rpcResponse.json()) as { error?: any; result?: any };
     if (result.error) {
-      throw new Error(`Time travel failed: ${result.error.message}`);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Wait for a few new slots to be produced at the new time
-    const currentSlot = await provider.connection.getSlot();
-    await provider.connection.confirmTransaction({
-      signature: await provider.connection.requestAirdrop(
-        provider.wallet.publicKey,
-        1, // minimal lamports
-      ),
-      ...(await provider.connection.getLatestBlockhash()),
-    });
-  }
-
-  it("Time travel to the future with detailed logs", async () => {
-    // Read the Clock sysvar to get the REAL cluster unix_timestamp
-    const CLOCK_SYSVAR = new anchor.web3.PublicKey(
-      "SysvarC1ock11111111111111111111111111111111",
-    );
-    const clockAccount = await provider.connection.getAccountInfo(CLOCK_SYSVAR);
-
-    if (!clockAccount) throw new Error("Cannot read Clock sysvar");
-
-    // unix_timestamp is at offset 32, as i64 (8 bytes LE)
-    const currentUnixTimestamp = Number(clockAccount.data.readBigInt64LE(32));
-    console.log("Clock unix_timestamp:", currentUnixTimestamp);
-    console.log(
-      "Clock date:",
-      new Date(currentUnixTimestamp * 1000).toISOString(),
-    );
-
-    // Jump 20 days forward — target in MILLISECONDS
-    const target = currentUnixTimestamp * 1000 + 20 * 24 * 60 * 60 * 1000;
-    console.log("Target timestamp (ms):", target);
-
-    const rpcResponse = await fetch(provider.connection.rpcEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "surfnet_timeTravel",
-        params: [{ absoluteTimestamp: target }],
-      }),
-    });
-
-    const result = await rpcResponse.json();
-    console.log("RPC result:", JSON.stringify(result, null, 2));
-
-    if (result.error) {
-      throw new Error(`Time travel failed: ${result.error.message}`);
+      throw new Error(`Time travel failed: ${JSON.stringify(result.error)}`);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  it("Time travel to the future", async () => {
+    // Advance time in milliseconds
+    const currentTimestamp = Date.now();
+    await advanceTime({
+      absoluteTimestamp:
+        currentTimestamp + TIME_TRAVEL_IN_DAYS * MILLISECONDS_PER_DAY,
+    });
+    console.log("\nTime traveled in days", TIME_TRAVEL_IN_DAYS);
   });
 
-  it("Verify time travel worked", async () => {
-    const slot = await provider.connection.getSlot();
-    const blockTime = await provider.connection.getBlockTime(slot);
-    const epochInfo = await provider.connection.getEpochInfo();
-
-    console.log("Post-travel slot:", slot);
-    console.log("Post-travel epoch:", epochInfo.epoch);
-    console.log("Post-travel blockTime:", blockTime);
-
-    // Read Clock sysvar directly
-    const CLOCK_SYSVAR = new anchor.web3.PublicKey(
-      "SysvarC1ock11111111111111111111111111111111",
+  xit("Claims Rewards for a staked NFT", async () => {
+    // Get the user rewards ATA account
+    const userRewardsAta = getAssociatedTokenAddressSync(
+      rewardsMint,
+      provider.wallet.publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
-    const clockAccount = await provider.connection.getAccountInfo(CLOCK_SYSVAR);
-    if (clockAccount) {
-      const postUnixTimestamp = Number(clockAccount.data.readBigInt64LE(32));
-      console.log("Post-travel Clock unix_timestamp:", postUnixTimestamp);
-      console.log(
-        "Post-travel Clock date:",
-        new Date(postUnixTimestamp * 1000).toISOString(),
-      );
+    try {
+      const tx = await program.methods
+        .claimRewards()
+        .accountsPartial({
+          user: provider.wallet.publicKey,
+          updateAuthority,
+          config,
+          rewardsMint,
+          userRewardsAta,
+          nft: nftKeypair.publicKey,
+          collection: collectionKeypair.publicKey,
+          mplCoreProgram: MPL_CORE_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      console.log("\nYour transaction signature", tx);
+    } catch (error) {
+      console.log(error.logs);
+      throw error;
     }
+    console.log(
+      "User rewards balance",
+      (await provider.connection.getTokenAccountBalance(userRewardsAta)).value
+        .uiAmount,
+    );
   });
 
   it("Unstake an NFT", async () => {
@@ -267,23 +204,28 @@ describe("nft-staking-core", () => {
       TOKEN_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID,
     );
-    const tx = await program.methods
-      .unstake()
-      .accountsPartial({
-        user: provider.wallet.publicKey,
-        updateAuthority,
-        config,
-        rewardsMint,
-        userRewardsAta,
-        nft: nftKeypair.publicKey,
-        collection: collectionKeypair.publicKey,
-        mplCoreProgram: MPL_CORE_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      })
-      .rpc();
-    console.log("\nYour transaction signature", tx);
+    try {
+      const tx = await program.methods
+        .unstake()
+        .accountsPartial({
+          user: provider.wallet.publicKey,
+          updateAuthority,
+          config,
+          rewardsMint,
+          userRewardsAta,
+          nft: nftKeypair.publicKey,
+          collection: collectionKeypair.publicKey,
+          mplCoreProgram: MPL_CORE_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+      console.log("\nYour transaction signature", tx);
+    } catch (error) {
+      console.log(error.logs);
+      throw error;
+    }
     console.log(
       "User rewards balance",
       (await provider.connection.getTokenAccountBalance(userRewardsAta)).value

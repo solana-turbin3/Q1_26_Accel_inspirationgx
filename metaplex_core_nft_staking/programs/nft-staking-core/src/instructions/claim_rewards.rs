@@ -86,18 +86,21 @@ impl<'info> ClaimRewards<'info> {
 
         // Extract and validate staking attributes
         let mut attribute_list: Vec<Attribute> = Vec::with_capacity(fetched_attribute_list.attribute_list.len());
-        let mut staked_value: Option<&str> = None;
+        let mut is_staked: Option<&str> = None;
         let mut staked_at_value: Option<&str> = None;
 
          for attribute in &fetched_attribute_list.attribute_list {
             match attribute.key.as_str() {
                 "staked" => {
-                    staked_value = Some(&attribute.value);
-                    
+                    is_staked = Some(&attribute.value);
+                     attribute_list.push(attribute.clone());
                 }
                 "staked_at" => {
                     staked_at_value = Some(&attribute.value);
-                   
+                    attribute_list.push(Attribute { 
+                        key: "staked_at".to_string(), 
+                        value: current_timestamp.to_string() 
+                    });
                 }
                 _ => {
                     attribute_list.push(attribute.clone());
@@ -105,11 +108,15 @@ impl<'info> ClaimRewards<'info> {
             }
         }
 
-         // check that user staked
-         require!(staked_value == Some("true"), StakingError::NotStaked);
+         let raw_staked_at_value = staked_at_value.ok_or(StakingError::InvalidTimestamp)?;
+           let clean_staked_at_value = raw_staked_at_value
+            .trim_matches(char::from(0)) // Remove null bytes common in Borsh strings
+            .trim(); // Remove spaces
 
-         let staked_at_timestamp = staked_at_value
-            .ok_or(StakingError::InvalidTimestamp)?
+         // check that user staked
+         require!(is_staked == Some("true"), StakingError::NotStaked);
+
+         let staked_at_timestamp = clean_staked_at_value
             .parse::<i64>()
             .map_err(|_| StakingError::InvalidTimestamp)?;
 
@@ -122,11 +129,12 @@ impl<'info> ClaimRewards<'info> {
             .checked_div(SECONDS_PER_DAY)
             .ok_or(StakingError::InvalidTimestamp)?;
 
+       
         // check that user has staked for at least a day
         require!(staked_time_days > 0, StakingError::FreezePeriodNotElapsed);
 
        
-       let total_points_over_days = (self.config.points_per_stake as u64).checked_mul(staked_time_days as u64).ok_or(  StakingError::Overflow)?;
+       let total_points_over_days = (self.config.points_per_stake as u64).checked_mul(staked_time_days as u64).ok_or(StakingError::Overflow)?;
 
          let config_seeds = &[
             b"config",
@@ -145,6 +153,16 @@ impl<'info> ClaimRewards<'info> {
         // do transfer
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, config_signer_seeds);
         mint_to_checked(cpi_ctx, total_points_over_days, self.rewards_mint.decimals)?;
+
+// update last staked timestanp to now
+        UpdatePluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
+    .asset(&self.nft.to_account_info())
+    .collection(Some(&self.collection.to_account_info()))
+    .payer(&self.user.to_account_info())
+    .authority(Some(&self.update_authority.to_account_info()))
+    .system_program(&self.system_program.to_account_info())
+    .plugin(Plugin::Attributes( Attributes { attribute_list }))
+    .invoke_signed(&[signer_seeds])?;
         
         Ok(())
     }

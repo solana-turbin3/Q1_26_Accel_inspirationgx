@@ -1,6 +1,6 @@
 ---
-name: nft-staking-core
-id: nft-staking-core
+name: metaplex_core_nft_staking
+id: metaplexcorenftstaking
 runbooks:
   - name: deployment
     description: Deploy programs

@@ -1,4 +1,4 @@
-# nft-staking-core Runbooks
+# metaplex_core_nft_staking Runbooks
 
 [![Surfpool](https://img.shields.io/badge/Operated%20with-Surfpool-gree?labelColor=gray)](https://surfpool.run)
 

@@ -119,10 +119,7 @@ impl<'info> Unstake<'info> {
         let clean_staked_value = raw_staked_value
             .trim_matches(char::from(0)) // Remove null bytes common in Borsh strings
             .trim(); // Remove spaces
-
-        // 3. Log it to prove what we are seeing
-        msg!("Raw Attribute String: '{}'", raw_staked_value);
-        msg!("Clean Attribute String: '{}'", clean_staked_value);
+      
 
         // 4. Parse the clean string
         let staked_at_timestamp = clean_staked_value
@@ -146,8 +143,14 @@ impl<'info> Unstake<'info> {
             .checked_div(SECONDS_PER_DAY)
             .ok_or(StakingError::InvalidTimestamp)?;
 
-        // require!(staked_time_days > 0, StakingError::FreezePeriodNotElapsed);
-        // require!(staked_time_days >= self.config.freeze_period as i64, StakingError::FreezePeriodNotElapsed);
+          msg!("current timestamp: '{}'", current_timestamp);
+        msg!("staked at timestamp: '{}'", staked_at_timestamp);
+        msg!("staked time in days: '{}'", staked_time_days);
+
+        require!(staked_time_days > 0, StakingError::FreezePeriodNotElapsed);
+        require!(staked_time_days >= self.config.freeze_period as i64, StakingError::FreezePeriodNotElapsed);
+
+        
 
         // Update the NFT attributes with reset values
         UpdatePluginV1CpiBuilder::new(&self.mpl_core_program.to_account_info())
